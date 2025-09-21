@@ -9,8 +9,9 @@ $config = [
     'sassString' => '',
 ];
 
-// 需要测试的 Blob 名称
-$blobName = "test.txt"; // 替换为你的实际文件名
+
+// 要测试的 Blob 名称
+$blobName = "test.txt"; // 替换成你实际的文件
 
 // 构造完整 URL
 $blobUrl = sprintf("%s/%s/%s%s",
@@ -20,11 +21,11 @@ $blobUrl = sprintf("%s/%s/%s%s",
     $config['sassString']
 );
 
-// 使用 cURL 发起请求
+// cURL 请求
 $ch = curl_init();
 curl_setopt($ch, CURLOPT_URL, $blobUrl);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_HEADER, true);
+curl_setopt($ch, CURLOPT_HEADER, false); // 只返回 body
 curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 
 $response = curl_exec($ch);
@@ -34,14 +35,21 @@ if ($response === false) {
     echo "请求失败: " . curl_error($ch) . PHP_EOL;
 } else {
     echo "HTTP 状态码: $httpCode" . PHP_EOL;
+
     if ($httpCode == 200) {
         echo "访问成功!" . PHP_EOL;
-        echo substr($response, 0, 500) . PHP_EOL; // 只显示前500字节
-    } elseif ($httpCode == 403) {
-        echo "403 Forbidden: 权限不足或 SAS Token 无效/过期" . PHP_EOL;
+        echo substr($response, 0, 500) . PHP_EOL;
     } else {
-        echo "其他错误:" . PHP_EOL;
-        echo $response . PHP_EOL;
+        // 尝试解析 Azure 返回的 XML 错误信息
+        libxml_use_internal_errors(true);
+        $xml = simplexml_load_string($response);
+        if ($xml !== false && isset($xml->Code) && isset($xml->Message)) {
+            echo "错误代码: " . (string)$xml->Code . PHP_EOL;
+            echo "错误信息: " . (string)$xml->Message . PHP_EOL;
+        } else {
+            echo "未解析到详细错误信息:" . PHP_EOL;
+            echo $response . PHP_EOL;
+        }
     }
 }
 
