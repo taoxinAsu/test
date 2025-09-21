@@ -21,36 +21,36 @@ $blobUrl = sprintf("%s/%s/%s%s",
     $config['sassString']
 );
 
-// cURL 请求
+// 初始化 cURL
 $ch = curl_init();
 curl_setopt($ch, CURLOPT_URL, $blobUrl);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_HEADER, false); // 只返回 body
+curl_setopt($ch, CURLOPT_HEADER, true); // 返回 header + body
 curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+
+// 开启详细调试输出
+curl_setopt($ch, CURLOPT_VERBOSE, true);
+$verbose = fopen('php://temp', 'w+');
+curl_setopt($ch, CURLOPT_STDERR, $verbose);
 
 $response = curl_exec($ch);
 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-if ($response === false) {
-    echo "请求失败: " . curl_error($ch) . PHP_EOL;
-} else {
-    echo "HTTP 状态码: $httpCode" . PHP_EOL;
+// 分离响应头和 body
+$headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+$header = substr($response, 0, $headerSize);
+$body = substr($response, $headerSize);
 
-    if ($httpCode == 200) {
-        echo "访问成功!" . PHP_EOL;
-        echo substr($response, 0, 500) . PHP_EOL;
-    } else {
-        // 尝试解析 Azure 返回的 XML 错误信息
-        libxml_use_internal_errors(true);
-        $xml = simplexml_load_string($response);
-        if ($xml !== false && isset($xml->Code) && isset($xml->Message)) {
-            echo "错误代码: " . (string)$xml->Code . PHP_EOL;
-            echo "错误信息: " . (string)$xml->Message . PHP_EOL;
-        } else {
-            echo "未解析到详细错误信息:" . PHP_EOL;
-            echo $response . PHP_EOL;
-        }
-    }
-}
+echo "HTTP 状态码: $httpCode\n";
+echo "==== 响应头 ====\n";
+echo $header . "\n";
+echo "==== 响应体 ====\n";
+echo $body . "\n";
+
+// 打印详细调试信息
+rewind($verbose);
+$verboseLog = stream_get_contents($verbose);
+echo "==== cURL 调试信息 ====\n";
+echo $verboseLog;
 
 curl_close($ch);
